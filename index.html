@@ -1,0 +1,484 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>AcadLens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single scannable page. Header + filters, alert strip, five KPI cards,
+   three charts, then flagged sections beside a section detail panel. */
+:root{
+  --bg:#F2F5F6; --surface:#FFFFFF; --ink:#15232B; --ink2:#44565F; --muted:#74858E; --line:#DCE3E7;
+  --accent:#0D6A77; --accent-soft:#D9EDF0; --accent-light:#8FC6CD;
+  --good:#17784A; --good-bg:#DDF1E6; --warn:#9A5B00; --warn-bg:#FBEBCB; --bad:#B83227; --bad-bg:#F9DEDA;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-num:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D151A; --surface:#15212A; --ink:#E7EEF1; --ink2:#AAB8C0; --muted:#80919B; --line:#26363F;
+    --accent:#5CC0CE; --accent-soft:#123840; --accent-light:#2F6E78;
+    --good:#52C48C; --good-bg:#123826; --warn:#E8A93A; --warn-bg:#3D2C0C; --bad:#F27C6F; --bad-bg:#40191A;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D151A; --surface:#15212A; --ink:#E7EEF1; --ink2:#AAB8C0; --muted:#80919B; --line:#26363F;
+  --accent:#5CC0CE; --accent-soft:#123840; --accent-light:#2F6E78;
+  --good:#52C48C; --good-bg:#123826; --warn:#E8A93A; --warn-bg:#3D2C0C; --bad:#F27C6F; --bad-bg:#40191A;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;
+  padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px));padding-block:18px 28px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand svg{flex:none}
+.brand h1{font-size:20px;line-height:1.1;margin:0;font-weight:600;letter-spacing:-.01em}
+.brand p{margin:2px 0 0;color:var(--ink2);font-size:12.5px}
+.tag{font-size:11px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);
+  border:1px solid var(--line);border-radius:4px;padding:3px 8px;background:var(--surface)}
+
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.filters label{display:flex;flex-direction:column;gap:3px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.filters select{font-size:14px;letter-spacing:0;text-transform:none;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:6px 28px 6px 9px;min-width:150px}
+.filters .asof{margin-left:auto;font-size:12.5px;color:var(--ink2);align-self:center}
+
+.alertbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--bad);background:var(--bad-bg);color:var(--ink);border-radius:6px;padding:10px 14px}
+.alertbar.calm{border-color:var(--good);background:var(--good-bg)}
+.alertbar strong{font-weight:600}
+.alertbar .chips{display:flex;gap:8px;flex-wrap:wrap}
+.alertbar button{margin-left:auto;background:transparent;border:1px solid currentColor;border-radius:4px;padding:4px 10px;cursor:pointer;color:var(--ink)}
+
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .name{font-size:12px;color:var(--ink2);font-weight:500;min-height:2.6em}
+.kpi .val{font-family:var(--f-num);font-size:28px;font-weight:500;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .val small{font-size:13px;color:var(--muted);letter-spacing:0}
+.kpi .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.kpi .tgt{font-size:12px;color:var(--ink2)}
+.kpi .delta{font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;border-radius:99px;padding:2px 9px 2px 6px}
+.pill svg{width:13px;height:13px}
+.s0{background:var(--good-bg);color:var(--good)} .s1{background:var(--warn-bg);color:var(--warn)} .s2{background:var(--bad-bg);color:var(--bad)}
+.spark{width:100%;height:30px;display:block}
+
+.charts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr) minmax(0,1.25fr);gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.card h2{margin:0;font-size:14px;font-weight:600}
+.card .sub{margin:0;font-size:12px;color:var(--ink2)}
+.chart{width:100%;min-width:0;position:relative}
+.chart svg{display:block;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink2)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend svg{width:12px;height:12px}
+
+.dims{display:flex;flex-direction:column;gap:12px;padding-top:4px}
+.dim-h{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--ink2);margin-bottom:4px}
+.dim-h b{font-family:var(--f-num);font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.dim .track{position:relative;height:12px;background:var(--bg);border-radius:0 4px 4px 0}
+.dim .fill{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:0 4px 4px 0}
+.dim .tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);margin-left:-1px}
+.dim .axis{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:2px;font-family:var(--f-num)}
+
+.lower{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:0;border-bottom:1px solid var(--line)}
+td button{all:unset;box-sizing:border-box;display:block;width:100%;padding:8px;cursor:pointer;white-space:nowrap}
+td.num button{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+tr:hover td{background:var(--bg)}
+tr.sel td{background:var(--accent-soft)}
+td button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+th.num,td.num{text-align:right}
+
+.detail h3{margin:0;font-size:15px;font-weight:600}
+.detail .meta{font-size:12.5px;color:var(--ink2);margin:0}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{background:var(--bg);border-radius:4px;padding:7px 9px}
+.stat span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.stat b{font-family:var(--f-num);font-weight:500;font-size:16px;font-variant-numeric:tabular-nums}
+.note{font-size:13px;margin:0;color:var(--ink2)}
+.note strong{color:var(--ink);font-weight:600}
+.miniD{display:grid;grid-template-columns:minmax(0,1fr) 90px 34px;gap:6px 8px;align-items:center;font-size:12px;color:var(--ink2)}
+.miniD .bar{height:8px;background:var(--bg);border-radius:0 3px 3px 0;position:relative}
+.miniD .bar i{position:absolute;inset:0 auto 0 0;background:var(--accent);border-radius:0 3px 3px 0}
+.miniD b{font-family:var(--f-num);font-weight:500;color:var(--ink);text-align:right}
+
+.privacy{display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--ink2);padding:10px 14px;border:1px dashed var(--line);border-radius:6px}
+.privacy svg{flex:none;margin-top:1px}
+
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;line-height:1.35;padding:6px 9px;border-radius:4px;max-width:240px;opacity:0;transition:opacity .08s}
+.tip.on{opacity:1}
+.tip b{font-weight:600}
+.pt{cursor:pointer}
+.pt:focus-visible{outline:none}
+.pt:focus-visible .ring{stroke:var(--accent);stroke-width:2}
+
+@media (max-width:1100px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .charts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .charts .scatter{grid-column:1 / -1}
+  .lower{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:640px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .charts{grid-template-columns:minmax(0,1fr)}
+  .filters select{min-width:0;width:100%}
+  .filters label{flex:1 1 140px}
+  .filters .asof{margin-left:0}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (prefers-reduced-motion:reduce){.tip{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="17" cy="17" r="13" fill="none" stroke="var(--accent)" stroke-width="3.5"/>
+        <rect x="10.5" y="18" width="3.6" height="7" rx="1" fill="var(--accent)"/>
+        <rect x="15.2" y="13" width="3.6" height="12" rx="1" fill="var(--accent)"/>
+        <rect x="19.9" y="9.5" width="3.6" height="15.5" rx="1" fill="var(--accent)"/>
+        <path d="M27 27 L36 36" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>AcadLens</h1>
+        <p id="scope">Program Chair view · CICS · all departments · ARASOF-Nasugbu</p>
+      </div>
+    </div>
+    <span class="tag">Sample data for demonstration</span>
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <label for="fAY">Academic year<select id="fAY"></select></label>
+    <label for="fSem">Semester<select id="fSem"></select></label>
+    <label for="fCollege">College<select id="fCollege"></select></label>
+    <label for="fTrack">Department / track<select id="fTrack"></select></label>
+    <span class="asof" id="asof"></span>
+  </section>
+
+  <div class="alertbar" id="alertbar" role="status"></div>
+
+  <section class="kpis" id="kpis" aria-label="Key performance indicators"></section>
+
+  <section class="charts">
+    <div class="card">
+      <h2>SETE mean rating by semester</h2>
+      <p class="sub">Valid sections only (scale 1–5, axis shows 3.4–4.6). Select a point to jump to that semester.</p>
+      <div class="chart" id="cTrend"></div>
+    </div>
+    <div class="card">
+      <h2>SETE by evaluation dimension</h2>
+      <p class="sub" id="dimSub"></p>
+      <div class="dims" id="cDims"></div>
+      <div class="legend"><span><svg viewBox="0 0 12 12"><rect x="0" y="3" width="12" height="6" rx="1" fill="var(--accent)"/></svg>This semester</span><span><svg viewBox="0 0 12 12"><rect x="5" y="0" width="2" height="12" fill="var(--ink)"/></svg>Previous semester</span></div>
+    </div>
+    <div class="card scatter">
+      <h2>Pass rate against SETE rating, by section</h2>
+      <p class="sub">Each mark is one section. The lower-left area needs a supportive review. Select a mark for detail.</p>
+      <div class="chart" id="cScatter"></div>
+      <div class="legend" id="scLegend"></div>
+    </div>
+  </section>
+
+  <section class="lower">
+    <div class="card" id="alertsCard">
+      <h2>Sections to review</h2>
+      <p class="sub">Flagged on pass rate, SETE rating, or too few SETE responses. Select a row for detail.</p>
+      <div class="tablewrap"><table id="tbl"></table></div>
+    </div>
+    <div class="card detail" id="detail" aria-live="polite"></div>
+  </section>
+
+  <div class="privacy">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+    <span><strong>Access and confidentiality.</strong> Signed-in Program Chair role only, with access logged. In a live system a Program Chair sees only their own college; the college filter is shown here for Dean-level access and for demonstration. Faculty appear as codes, not names. SETE scores are not interpreted when a section has fewer than 5 respondents or under 50% response. Student-level records are never shown; only counts and percentages.</span>
+  </div>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+/* ---------- Sample data (deterministic, illustrative only) ---------- */
+const SEMS=[];
+['2023-2024','2024-2025','2025-2026'].forEach(ay=>[1,2].forEach(s=>SEMS.push({ay,s})));
+const COLLEGES=[
+  {short:'CICS',label:'CICS · Informatics and Computing Sciences'},
+  {short:'CTE',label:'CTE · Teacher Education'},
+  {short:'COE',label:'COE · Engineering'},
+  {short:'CABEIHM',label:'CABEIHM · Accountancy, Business and Hospitality'}
+];
+const TRACKS=['BSIT – Business Analytics','BSIT – Network Technology','BSIT – Service Management','Elementary Education','Secondary Education','Computer Engineering','Electrical Engineering','Accountancy','Business Administration'];
+const TCOL=[0,0,0,1,1,2,2,3,3];
+const COURSES=[
+  [['BAT 401','Business Intelligence'],['BAT 403','Data Mining'],['BAT 405','Analytics Application'],['BAT 407','Predictive Modeling'],['CAP 401','Capstone Project 1'],['PRA 401','Practicum']],
+  [['NET 401','Network Administration'],['NET 403','Network Security'],['NET 405','Cloud Infrastructure'],['NET 407','Systems Integration'],['CAP 401','Capstone Project 1'],['PRA 401','Practicum']],
+  [['SMT 401','IT Service Management'],['SMT 403','Service Operations'],['SMT 405','IT Governance'],['SMT 407','Service Design'],['CAP 401','Capstone Project 1'],['PRA 401','Practicum']],
+  [['EED 401','Teaching Strategies'],['EED 403','Assessment of Learning'],['EED 405','Curriculum Development'],['EED 407','Language Teaching'],['FS 401','Field Study'],['PRA 401','Practicum']],
+  [['SED 401','Methods of Teaching'],['SED 403','Educational Technology'],['SED 405','Classroom Management'],['SED 407','Special Topics'],['FS 401','Field Study'],['PRA 401','Practicum']],
+  [['CPE 401','Embedded Systems'],['CPE 403','Digital Signal Processing'],['CPE 405','Computer Networks'],['CPE 407','Operating Systems'],['CAP 401','Design Project 1'],['OJT 401','On-the-Job Training']],
+  [['EE 401','Power Systems'],['EE 403','Control Systems'],['EE 405','Electrical Machines'],['EE 407','Power Electronics'],['CAP 401','Design Project 1'],['OJT 401','On-the-Job Training']],
+  [['ACC 401','Advanced Financial Accounting'],['ACC 403','Auditing'],['ACC 405','Taxation'],['ACC 407','Management Advisory Services'],['CAP 401','Research Project'],['PRA 401','Practicum']],
+  [['BA 401','Strategic Management'],['BA 403','Marketing Management'],['BA 405','Operations Management'],['BA 407','Business Law'],['CAP 401','Research Project'],['PRA 401','Practicum']]
+];
+const DIMS=['Commitment','Knowledge of Subject','Teaching for Independent Learning','Management of Learning'];
+const DIM_OFF=[.08,.05,-.1,-.03];
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const sum=(a,k)=>a.reduce((x,s)=>x+s[k],0);
+
+const SECTIONS=[], RET=[];
+SEMS.forEach((sm,si)=>{
+  let k=0;
+  TRACKS.forEach((tr,ti)=>{
+    COURSES[ti].forEach(([code,name])=>{
+      const r=rng(7919*si+131*k+17);
+      const enrolled=26+Math.floor(r()*17);
+      let pr=clamp(.90+.004*si+(r()-.5)*.13,.6,.99);
+      let rr=clamp(.72+.02*si+(r()-.5)*.34,.25,.98);
+      let m=clamp(4.22+.03*si+(r()-.5)*.7,2.9,4.9);
+      if(si===5){
+        if(k===2){pr=.76}
+        if(k===7){pr=.71;m=3.38;rr=.80}
+        if(k===13){m=3.42;pr=.88;rr=.78}
+        if(k===16){rr=.28;m=3.1}
+      }
+      const dims=DIM_OFF.map(o=>clamp(m+o+(r()-.5)*.24,1.5,5));
+      const resp=Math.round(enrolled*rr);
+      const passed=Math.round(enrolled*pr);
+      const mean=dims.reduce((a,b)=>a+b,0)/4;
+      const valid=resp>=5&&resp/enrolled>=.5;
+      const passLow=passed/enrolled<.8, seteLow=valid&&mean<3.5;
+      const sev=(passLow&&seteLow)?2:(passLow||seteLow)?1:0;
+      SECTIONS.push({id:`${si}-${k}`,si,ti,ci:TCOL[ti],code:`${code}-A`,course:name,fac:'F-'+String(1+((k*5+si*2)%10)).padStart(2,'0'),
+        enrolled,passed,resp,dims,mean,valid,passLow,seteLow,sev,lowResp:!valid});
+      k++;
+    });
+    const rr=rng(555*si+ti*31+3);
+    const cohort=150+Math.floor(rr()*40);
+    RET.push({si,ti,ci:TCOL[ti],cohort,retained:Math.round(cohort*clamp(.945+.003*si+(rr()-.5)*.05,.88,.99))});
+  });
+});
+
+/* ---------- Metrics ---------- */
+const inScope=(o,t)=>(state.college==='all'||o.ci===+state.college)&&(t==='all'||o.ti===+t);
+const secsFor=(si,t)=>SECTIONS.filter(s=>s.si===si&&inScope(s,t));
+function metrics(si,t){
+  const ss=secsFor(si,t), v=ss.filter(s=>s.valid), vr=sum(v,'resp');
+  const rt=RET.filter(r=>r.si===si&&inScope(r,t));
+  return{ss,
+    pass:sum(ss,'passed')/sum(ss,'enrolled')*100,
+    ret:sum(rt,'retained')/sum(rt,'cohort')*100,
+    sete:vr?v.reduce((a,s)=>a+s.mean*s.resp,0)/vr:null,
+    resp:sum(ss,'resp')/sum(ss,'enrolled')*100,
+    flag:ss.filter(s=>s.sev>0).length/ss.length*100,
+    dims:DIMS.map((_,i)=>vr?v.reduce((a,s)=>a+s.dims[i]*s.resp,0)/vr:null)};
+}
+const KPIS=[
+  {k:'pass',name:'Course Pass Rate',fmt:v=>v.toFixed(1),unit:'%',target:'Target ≥ 90%',st:v=>v>=90?0:v>=80?1:2,diff:'pts',hi:true},
+  {k:'ret',name:'Student Retention Rate',fmt:v=>v.toFixed(1),unit:'%',target:'Target ≥ 95%',st:v=>v>=95?0:v>=90?1:2,diff:'pts',hi:true},
+  {k:'sete',name:'SETE Mean Rating (valid sections)',fmt:v=>v.toFixed(2),unit:' / 5',target:'Target ≥ 4.20',st:v=>v>=4.2?0:v>=3.5?1:2,diff:'',hi:true},
+  {k:'resp',name:'SETE Response Rate',fmt:v=>v.toFixed(1),unit:'%',target:'Target ≥ 75%',st:v=>v>=75?0:v>=50?1:2,diff:'pts',hi:true},
+  {k:'flag',name:'Sections Flagged for Review',fmt:v=>v.toFixed(1),unit:'%',target:'Target ≤ 10%',st:v=>v<=10?0:v<=15?1:2,diff:'pts',hi:false}
+];
+const ICON=[
+  '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="5.8"/><path d="M4.3 7.2l1.9 1.9 3.5-3.9"/></svg>',
+  '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 1.6L13 12H1z" stroke-linejoin="round"/><path d="M7 5.6v3M7 10.3v.1"/></svg>',
+  '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4.4 1.4h5.2l3 3v5.2l-3 3H4.4l-3-3V4.4z" stroke-linejoin="round"/><path d="M5 5l4 4M9 5l-4 4"/></svg>'
+];
+const STLAB=['On target','Watch','Alert'];
+const pill=s=>`<span class="pill s${s}">${ICON[s]}${STLAB[s]}</span>`;
+
+/* ---------- State & helpers ---------- */
+const $=s=>document.querySelector(s);
+const state={ay:2,sem:2,college:'0',track:'all',sel:null};
+const semIdx=()=>state.ay*2+state.sem-1;
+const semLabel=i=>`${SEMS[i].s===1?'1st':'2nd'} Sem, AY ${SEMS[i].ay}`;
+const tip=$('#tip');
+function showTip(html,e){tip.innerHTML=html;tip.classList.add('on');
+  const w=tip.offsetWidth,h=tip.offsetHeight;
+  let x=e.clientX+14,y=e.clientY+14; if(x+w>innerWidth-8)x=e.clientX-w-14; if(y+h>innerHeight-8)y=e.clientY-h-14;
+  tip.style.left=Math.max(8,x)+'px';tip.style.top=Math.max(8,y)+'px'}
+const hideTip=()=>tip.classList.remove('on');
+function bindTip(el,html){el.addEventListener('mousemove',e=>showTip(html,e));el.addEventListener('mouseleave',hideTip);
+  el.addEventListener('focus',()=>{const r=el.getBoundingClientRect();showTip(html,{clientX:r.left+r.width/2,clientY:r.top})});el.addEventListener('blur',hideTip)}
+const NS='http://www.w3.org/2000/svg';
+function svgEl(w,h){const s=document.createElementNS(NS,'svg');s.setAttribute('width',w);s.setAttribute('height',h);s.setAttribute('viewBox',`0 0 ${w} ${h}`);return s}
+function add(p,t,a,txt){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;p.appendChild(e);return e}
+
+/* ---------- Filters ---------- */
+function initFilters(){
+  $('#fAY').innerHTML=['2023-2024','2024-2025','2025-2026'].map((a,i)=>`<option value="${i}">${a}</option>`).join('');
+  $('#fSem').innerHTML='<option value="1">1st Semester</option><option value="2">2nd Semester</option>';
+  $('#fCollege').innerHTML='<option value="all">All colleges</option>'+COLLEGES.map((c,i)=>`<option value="${i}">${c.label}</option>`).join('');
+  $('#fCollege').value=state.college;
+  fillTracks();
+  $('#fAY').value=state.ay;$('#fSem').value=state.sem;
+  $('#fAY').onchange=e=>{state.ay=+e.target.value;state.sel=null;render()};
+  $('#fSem').onchange=e=>{state.sem=+e.target.value;state.sel=null;render()};
+  $('#fCollege').onchange=e=>{state.college=e.target.value;state.track='all';fillTracks();state.sel=null;render()};
+  $('#fTrack').onchange=e=>{state.track=e.target.value;state.sel=null;render()};
+}
+function fillTracks(){
+  const idx=TRACKS.map((_,i)=>i).filter(i=>state.college==='all'||TCOL[i]===+state.college);
+  $('#fTrack').innerHTML='<option value="all">All departments</option>'+idx.map(i=>`<option value="${i}">${state.college==='all'?COLLEGES[TCOL[i]].short+' · ':''}${TRACKS[i]}</option>`).join('');
+  $('#fTrack').value=state.track;
+}
+function setSem(i){state.ay=Math.floor(i/2);state.sem=i%2+1;state.sel=null;$('#fAY').value=state.ay;$('#fSem').value=state.sem;render()}
+
+/* ---------- Render ---------- */
+function render(){
+  const si=semIdx(),M=metrics(si,state.track);
+  $('#asof').textContent=`Showing ${semLabel(si)}`;
+  $('#scope').textContent=`Program Chair view · ${state.college==='all'?'All colleges':COLLEGES[+state.college].short} · ${state.track==='all'?'all departments':TRACKS[+state.track]} · ARASOF-Nasugbu`;
+  renderAlert(M);renderKPIs(si,M);renderTrend();renderDims(si,M);renderScatter(M);renderTable(M);renderDetail(M);
+}
+function renderAlert(M){
+  const pri=M.ss.filter(s=>s.sev===2).length, wat=M.ss.filter(s=>s.sev===1).length, low=M.ss.filter(s=>s.lowResp).length;
+  const bar=$('#alertbar');
+  if(!pri&&!wat&&!low){bar.className='alertbar calm';bar.innerHTML=`<span class="pill s0">${ICON[0]}All clear</span><span>No section is below a threshold in this view.</span>`;return}
+  bar.className='alertbar';
+  bar.innerHTML=`<span class="pill s2">${ICON[2]}Attention</span><strong>${pri+wat} of ${M.ss.length} sections need a supportive review.</strong>
+   <span class="chips">${pri?`<span class="pill s2">${pri} priority</span>`:''}${wat?`<span class="pill s1">${wat} watch</span>`:''}${low?`<span class="pill s1">${low} with too few SETE responses</span>`:''}</span>
+   <button type="button" id="jump">View sections</button>`;
+  $('#jump').onclick=()=>$('#alertsCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function sparkline(vals,cur){
+  const w=160,h=30,mn=Math.min(...vals),mx=Math.max(...vals),pad=(mx-mn)*.15||1;
+  const X=i=>3+i*(w-6)/(vals.length-1),Y=v=>h-4-(v-(mn-pad))/((mx+pad)-(mn-pad))*(h-8);
+  const pts=vals.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function renderKPIs(si,M){
+  const prev=si>0?metrics(si-1,state.track):null;
+  $('#kpis').innerHTML=KPIS.map(d=>{
+    const v=M[d.k],s=d.st(v);
+    let delta='First period in data';
+    if(prev){const dv=v-prev[d.k];const a=dv>0.0001?'▲':dv<-0.0001?'▼':'■';
+      delta=`${a} ${dv>=0?'+':''}${d.k==='sete'?dv.toFixed(2):dv.toFixed(1)}${d.diff?' pts':''} vs previous`}
+    const series=SEMS.map((_,i)=>metrics(i,state.track)[d.k]);
+    return `<article class="kpi"><div class="name">${d.name}</div>
+      <div class="val">${d.fmt(v)}<small>${d.unit}</small></div>
+      <div class="row">${pill(s)}<span class="tgt">${d.target}</span></div>
+      ${sparkline(series,si)}
+      <div class="delta">${delta}</div></article>`}).join('');
+}
+function renderTrend(){
+  const el=$('#cTrend');el.innerHTML='';
+  const w=Math.max(240,el.clientWidth),h=310,m={l:34,r:14,t:16,b:40};
+  const series=SEMS.map((_,i)=>metrics(i,state.track).sete);
+  const s=svgEl(w,h);el.appendChild(s);
+  const X=i=>m.l+i*(w-m.l-m.r)/(SEMS.length-1),Y=v=>m.t+(4.6-v)/1.2*(h-m.t-m.b);
+  [3.5,4,4.5].forEach(g=>{add(s,'line',{x1:m.l,x2:w-m.r,y1:Y(g),y2:Y(g),stroke:'var(--line)','stroke-width':1});
+    add(s,'text',{x:m.l-6,y:Y(g)+4,'text-anchor':'end',fill:'var(--muted)','font-size':10.5,'font-family':'var(--f-num)'},g.toFixed(1))});
+  add(s,'line',{x1:m.l,x2:w-m.r,y1:Y(4.2),y2:Y(4.2),stroke:'var(--ink2)','stroke-width':1.5,'stroke-dasharray':'5 4'});
+  add(s,'text',{x:m.l+4,y:Y(4.2)+14,fill:'var(--ink2)','font-size':10.5},'Target 4.20');
+  add(s,'line',{x1:m.l,x2:w-m.r,y1:Y(3.5),y2:Y(3.5),stroke:'var(--bad)','stroke-width':1,'stroke-dasharray':'2 3'});
+  add(s,'text',{x:w-m.r,y:Y(3.5)+12,'text-anchor':'end',fill:'var(--bad)','font-size':10.5},'Alert below 3.50');
+  add(s,'path',{d:series.map((v,i)=>`${i?'L':'M'}${X(i)},${Y(v)}`).join(''),fill:'none',stroke:'var(--accent)','stroke-width':2,'stroke-linejoin':'round'});
+  const cross=add(s,'line',{y1:m.t,y2:h-m.b,stroke:'var(--muted)','stroke-width':1,opacity:0});
+  SEMS.forEach((sm,i)=>{
+    const sel=i===semIdx();
+    add(s,'text',{x:X(i),y:h-m.b+14,'text-anchor':'middle',fill:sel?'var(--ink)':'var(--muted)','font-size':10.5,'font-weight':sel?600:400},sm.s===1?'1st Sem':'2nd Sem');
+    add(s,'text',{x:X(i),y:h-m.b+27,'text-anchor':'middle',fill:sel?'var(--ink)':'var(--muted)','font-size':10},sm.ay.slice(2));
+    add(s,'circle',{cx:X(i),cy:Y(series[i]),r:sel?6:4,fill:'var(--accent)',stroke:'var(--surface)','stroke-width':2});
+    if(sel)add(s,'text',{x:X(i),y:Y(series[i])-11,'text-anchor':'middle',fill:'var(--ink)','font-size':11.5,'font-weight':600,'font-family':'var(--f-num)'},series[i].toFixed(2));
+    const hit=add(s,'rect',{x:X(i)-(w-m.l-m.r)/10,y:m.t,width:(w-m.l-m.r)/5,height:h-m.t-m.b,fill:'transparent',style:'cursor:pointer',tabindex:0,role:'button','aria-label':`${semLabel(i)}, SETE ${series[i].toFixed(2)}`});
+    const html=`<b>${semLabel(i)}</b><br>SETE mean ${series[i].toFixed(2)} of 5`;
+    hit.addEventListener('mousemove',e=>{cross.setAttribute('x1',X(i));cross.setAttribute('x2',X(i));cross.setAttribute('opacity',.6);showTip(html,e)});
+    hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip()});
+    hit.addEventListener('click',()=>setSem(i));
+    hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSem(i)}});
+  });
+}
+function renderDims(si,M){
+  const prev=si>0?metrics(si-1,state.track):null;
+  $('#dimSub').textContent=`Mean rating out of 5, valid sections, ${semLabel(si)}.`;
+  $('#cDims').innerHTML=DIMS.map((d,i)=>{
+    const v=M.dims[i],p=prev?prev.dims[i]:null;
+    return `<div class="dim" data-i="${i}"><div class="dim-h"><span>${d}</span><b>${v.toFixed(2)}</b></div>
+      <div class="track"><div class="fill" style="width:${v/5*100}%"></div>${p?`<i class="tick" style="left:${p/5*100}%"></i>`:''}</div>
+      <div class="axis"><span>0</span><span>5</span></div></div>`}).join('');
+  document.querySelectorAll('#cDims .dim').forEach(n=>{const i=+n.dataset.i,v=M.dims[i],p=prev?prev.dims[i]:null;
+    bindTip(n,`<b>${DIMS[i]}</b><br>${v.toFixed(2)} this semester${p?`<br>${p.toFixed(2)} previous semester`:''}`)});
+}
+function renderScatter(M){
+  const el=$('#cScatter');el.innerHTML='';
+  const w=Math.max(260,el.clientWidth),h=310,m={l:40,r:14,t:12,b:38};
+  const s=svgEl(w,h);el.appendChild(s);
+  const X=v=>m.l+(v-3)/2*(w-m.l-m.r),Y=v=>m.t+(100-v)/40*(h-m.t-m.b);
+  add(s,'rect',{x:m.l,y:m.t,width:X(3.5)-m.l,height:h-m.t-m.b,fill:'var(--bad)',opacity:.07});
+  add(s,'rect',{x:m.l,y:Y(80),width:w-m.l-m.r,height:Y(60)-Y(80),fill:'var(--bad)',opacity:.07});
+  [60,70,80,90,100].forEach(g=>{add(s,'line',{x1:m.l,x2:w-m.r,y1:Y(g),y2:Y(g),stroke:'var(--line)'});
+    add(s,'text',{x:m.l-6,y:Y(g)+4,'text-anchor':'end',fill:'var(--muted)','font-size':10.5,'font-family':'var(--f-num)'},g+'%')});
+  [3,3.5,4,4.5,5].forEach(g=>{add(s,'text',{x:X(g),y:h-m.b+15,'text-anchor':'middle',fill:'var(--muted)','font-size':10.5,'font-family':'var(--f-num)'},g.toFixed(1))});
+  add(s,'text',{x:(m.l+w-m.r)/2,y:h-4,'text-anchor':'middle',fill:'var(--ink2)','font-size':11},'SETE mean rating (1–5)');
+  add(s,'text',{x:12,y:(m.t+h-m.b)/2,'text-anchor':'middle',fill:'var(--ink2)','font-size':11,transform:`rotate(-90 12 ${(m.t+h-m.b)/2})`},'Pass rate');
+  add(s,'line',{x1:X(3.5),x2:X(3.5),y1:m.t,y2:h-m.b,stroke:'var(--bad)','stroke-dasharray':'3 3'});
+  add(s,'line',{x1:m.l,x2:w-m.r,y1:Y(80),y2:Y(80),stroke:'var(--bad)','stroke-dasharray':'3 3'});
+  add(s,'text',{x:X(3.5)+4,y:m.t+10,fill:'var(--bad)','font-size':10},'SETE 3.50');
+  add(s,'text',{x:w-m.r-2,y:Y(80)-4,'text-anchor':'end',fill:'var(--bad)','font-size':10},'Pass 80%');
+  const order=[...M.ss].sort((a,b)=>a.sev-b.sev);
+  order.forEach(sec=>{
+    const x=X(clamp(sec.mean,3,5)),y=Y(clamp(sec.passed/sec.enrolled*100,60,100));
+    const g=add(s,'g',{class:'pt',tabindex:0,role:'button','aria-label':`${sec.code} ${sec.course}, pass ${(sec.passed/sec.enrolled*100).toFixed(0)}%, SETE ${sec.mean.toFixed(2)}`});
+    add(g,'circle',{class:'ring',cx:x,cy:y,r:11,fill:'transparent',stroke:state.sel===sec.id?'var(--ink)':'none','stroke-width':2});
+    if(sec.lowResp)add(g,'circle',{cx:x,cy:y,r:5,fill:'var(--surface)',stroke:'var(--muted)','stroke-width':1.8,'stroke-dasharray':'2.5 1.5'});
+    else if(sec.sev===2)add(g,'rect',{x:x-5.5,y:y-5.5,width:11,height:11,fill:'var(--bad)',stroke:'var(--surface)','stroke-width':2});
+    else if(sec.sev===1)add(g,'path',{d:`M${x},${y-7}L${x+7},${y}L${x},${y+7}L${x-7},${y}Z`,fill:'var(--warn)',stroke:'var(--surface)','stroke-width':2,'stroke-linejoin':'round'});
+    else add(g,'circle',{cx:x,cy:y,r:4.5,fill:'var(--accent)',stroke:'var(--surface)','stroke-width':2});
+    if(sec.sev>0||sec.lowResp)add(g,'text',{x:x+(x>w-80?-10:10),y:y+4,'text-anchor':x>w-80?'end':'start',fill:'var(--ink)','font-size':10.5,'font-family':'var(--f-num)'},sec.code.replace('-A',''));
+    bindTip(g,`<b>${sec.code} ${sec.course}</b><br>Pass rate ${(sec.passed/sec.enrolled*100).toFixed(1)}%<br>SETE ${sec.mean.toFixed(2)}${sec.lowResp?' (too few responses)':''}`);
+    g.addEventListener('click',()=>pick(sec.id));
+    g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(sec.id)}});
+  });
+  $('#scLegend').innerHTML=`<span><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="var(--accent)"/></svg>Within thresholds</span>
+   <span><svg viewBox="0 0 12 12"><path d="M6 0L12 6L6 12L0 6Z" fill="var(--warn)"/></svg>Watch (one threshold)</span>
+   <span><svg viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" fill="var(--bad)"/></svg>Priority (both)</span>
+   <span><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="2.5 1.5"/></svg>Too few SETE responses</span>`;
+}
+const flagOf=s=>s.sev===2?2:s.sev===1?1:s.lowResp?1:0;
+const flagText=s=>s.sev===2?'Priority':s.sev===1?'Watch':s.lowResp?'Low response':'OK';
+function renderTable(M){
+  const rows=M.ss.filter(s=>s.sev>0||s.lowResp).sort((a,b)=>b.sev-a.sev||(b.lowResp-a.lowResp));
+  if(!rows.length){$('#tbl').innerHTML='<tbody><tr><td><button type="button" style="cursor:default">No sections are flagged in this view.</button></td></tr></tbody>';return}
+  $('#tbl').innerHTML=`<thead><tr><th>Status</th><th>Section</th><th class="num">Pass</th><th class="num">SETE</th><th class="num">Response</th></tr></thead><tbody>`+
+   rows.map(s=>`<tr data-id="${s.id}" class="${state.sel===s.id?'sel':''}">
+    <td><button type="button">${pill(flagOf(s)).replace(STLAB[flagOf(s)],flagText(s))}</button></td>
+    <td><button type="button"><b>${s.code}</b> ${s.course}</button></td>
+    <td class="num"><button type="button">${(s.passed/s.enrolled*100).toFixed(0)}%</button></td>
+    <td class="num"><button type="button">${s.lowResp?'n/a':s.mean.toFixed(2)}</button></td>
+    <td class="num"><button type="button">${(s.resp/s.enrolled*100).toFixed(0)}%</button></td></tr>`).join('')+'</tbody>';
+  document.querySelectorAll('#tbl tbody tr').forEach(r=>r.querySelectorAll('button').forEach(b=>b.onclick=()=>pick(r.dataset.id)));
+}
+function pick(id){state.sel=id;const M=metrics(semIdx(),state.track);renderScatter(M);renderTable(M);renderDetail(M)}
+function renderDetail(M){
+  let sec=M.ss.find(s=>s.id===state.sel)||[...M.ss].sort((a,b)=>b.sev-a.sev||b.lowResp-a.lowResp)[0];
+  if(!sec){$('#detail').innerHTML='<h2>Section detail</h2><p class="note">No sections in this view.</p>';return}
+  const pr=sec.passed/sec.enrolled*100,rr=sec.resp/sec.enrolled*100;
+  let msg,act;
+  if(sec.sev===2){msg=`Pass rate (${pr.toFixed(0)}%) and SETE (${sec.mean.toFixed(2)}) are both below threshold. This is a prompt for a supportive review, not a verdict. Check class size, prerequisite preparation, assessment difficulty and grading moderation first.`;act='Hold a chair–faculty consultation within two weeks. Review the syllabus and assessments, and offer peer observation or tutoring.'}
+  else if(sec.passLow){msg=`Pass rate is ${pr.toFixed(0)}%, below 80%, while SETE is acceptable${sec.lowResp?' (but too few students responded to rely on it)':''}. Look at prerequisite readiness and how assessments are designed.`;act='Review the grade distribution with the faculty member and schedule remedial or review sessions.'}
+  else if(sec.seteLow){msg=`SETE is ${sec.mean.toFixed(2)}, below 3.50, but students are passing at ${pr.toFixed(0)}%. Read the dimension scores below and the written comments before drawing conclusions.`;act='Discuss the lowest dimension with the faculty member and agree on one improvement to try next term.'}
+  else if(sec.lowResp){msg=`Only ${sec.resp} of ${sec.enrolled} students (${rr.toFixed(0)}%) answered SETE. The rating is not interpreted for this section.`;act='Ask the class adviser to promote the next evaluation window. Use program-level results until more responses arrive.'}
+  else{msg='This section is within all thresholds. Outcomes and student ratings are in line with the program.';act='Keep monitoring. Consider sharing the teaching approach with peers.'}
+  $('#detail').innerHTML=`<div><h3>${sec.code} · ${sec.course}</h3><p class="meta">${COLLEGES[sec.ci].short} · ${TRACKS[sec.ti]} · Faculty ${sec.fac} (name withheld)</p></div>
+   <div class="stats">
+    <div class="stat"><span>Enrolled</span><b>${sec.enrolled}</b></div>
+    <div class="stat"><span>Pass rate</span><b>${pr.toFixed(1)}%</b></div>
+    <div class="stat"><span>Response</span><b>${sec.resp} (${rr.toFixed(0)}%)</b></div>
+   </div>
+   <div class="miniD">${DIMS.map((d,i)=>`<span>${d}</span><div class="bar"><i style="width:${sec.dims[i]/5*100}%"></i></div><b>${sec.lowResp?'–':sec.dims[i].toFixed(1)}</b>`).join('')}</div>
+   <p class="note"><strong>How to read this.</strong> ${msg}</p>
+   <p class="note"><strong>Suggested action.</strong> ${act}</p>`;
+}
+
+initFilters();
+render();
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{renderTrend();renderScatter(metrics(semIdx(),state.track))},120)});
+</script>
+
+</body></html>
